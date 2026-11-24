@@ -16,6 +16,8 @@
 **University:** UPES  
 **Course:** B.Tech — First Year  
 **Subject:** C Programming
+**Batch:** 26
+**SUbmitted To:** Milton Kumar
 
 ---
 
