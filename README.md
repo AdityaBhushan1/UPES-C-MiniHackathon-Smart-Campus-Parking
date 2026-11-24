@@ -6,12 +6,11 @@
 
 ## Team
 
-| Role   | Name                     | SAP ID       |
-| ------ | ------------------------ | ------------ |
-| Member | *(Add your name here)*   | *(SAP ID)*   |
-| Member | *(Add your name here)*   | *(SAP ID)*   |
-| Member | *(Add your name here)*   | *(SAP ID)*   |
-| Member | *(Add your name here)*   | *(SAP ID)*   |
+------------------------ | ------------ |
+Name                     | SAP ID       |
+Aditya Bhushan           | 590042215    |
+Shreyan Bothra           | 590032865    |
+Harsh Hooda              | 590036966    |
 
 **Team Name:** Nexus  
 **University:** UPES  
