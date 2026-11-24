@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
+#include <time.h>
 
 #define MAX_SLOTS        10
 #define RATE_PER_HOUR    20
@@ -9,15 +10,18 @@
 #define MAX_TRANSACTIONS 100
 
 typedef struct {
-    int  slotNumber;
-    char regNumber[MAX_REG_LEN + 1];
-    int  isOccupied;
+    int    slotNumber;
+    char   regNumber[MAX_REG_LEN + 1];
+    int    isOccupied;
+    time_t entryTime;   /* Timestamp recorded at vehicle entry */
 } ParkingSlot;
 
 typedef struct {
     char regNumber[MAX_REG_LEN + 1];
     int  slotNumber;
-    int  duration;
+    int  billedHours;    /* Hours charged (rounded up)       */
+    int  actualHours;    /* Exact hours portion of duration   */
+    int  actualMinutes;  /* Exact minutes portion of duration */
     int  fee;
 } Transaction;
 
@@ -46,7 +50,7 @@ void viewParkingStatus(void);
 void searchVehicle(void);
 void parkingSummary(void);
 void viewTransactionHistory(void);
-void printReceipt(const char *reg, int slot, int duration, int fee);
+void printReceipt(const char *reg, int slot, int actualHrs, int actualMin, int billedHrs, int fee);
 
 int main(void)
 {
@@ -292,6 +296,7 @@ void vehicleEntry(void)
 
     strcpy(slots[slotIndex].regNumber, reg);
     slots[slotIndex].isOccupied = 1;
+    slots[slotIndex].entryTime  = time(NULL);  /* Record entry timestamp */
 
 
     occupied  = countOccupied();
@@ -300,16 +305,22 @@ void vehicleEntry(void)
     printf("\n  [OK] Vehicle parked successfully!\n");
     printf("  Vehicle       : %s\n", reg);
     printf("  Assigned Slot : %d\n", slots[slotIndex].slotNumber);
+    printf("  Entry Time    : %s", ctime(&slots[slotIndex].entryTime));
     printf("\n  Occupied : %d / %d  |  Available : %d\n",
            occupied, MAX_SLOTS, available);
 }
 
 void vehicleExit(void)
 {
-    char reg[MAX_REG_LEN + 1];
-    int  slotIndex;
-    int  duration;
-    int  fee;
+    char   reg[MAX_REG_LEN + 1];
+    int    slotIndex;
+    int    fee;
+    time_t exitTime;
+    double diffSeconds;
+    int    totalMinutes;   /* Total parking time in minutes     */
+    int    actualHours;    /* Exact hours portion               */
+    int    actualMinutes;  /* Exact minutes portion             */
+    int    billedHours;    /* Hours charged (rounded up, min 1) */
 
     printf("\n");
     printLine('=', 50);
@@ -328,33 +339,41 @@ void vehicleExit(void)
         return;
     }
 
+    /* Automatically calculate duration from entry time */
+    exitTime      = time(NULL);
+    diffSeconds   = difftime(exitTime, slots[slotIndex].entryTime);
+    totalMinutes  = (int)(diffSeconds / 60);     /* Total minutes parked */
+    actualHours   = totalMinutes / 60;           /* Exact hours part     */
+    actualMinutes = totalMinutes % 60;           /* Exact minutes part   */
 
-    printf("  Enter parking duration (whole hours, min %d): ", MIN_DURATION);
-    if (scanf("%d", &duration) != 1) {
-        clearInputBuffer();
-        printf("\n  [!] Invalid input. Please enter a whole number.\n");
-        return;
+    /* Bill by the hour: round up any partial hour, minimum 1 hour */
+    billedHours = actualHours;
+    if (actualMinutes > 0) {
+        billedHours++;   /* Round up partial hour */
     }
-    clearInputBuffer();
-
-    if (duration < MIN_DURATION) {
-        printf("\n  [!] Duration must be at least %d hour(s).\n",
-               MIN_DURATION);
-        return;
+    if (billedHours < MIN_DURATION) {
+        billedHours = MIN_DURATION;
     }
 
+    printf("  Entry Time   : %s", ctime(&slots[slotIndex].entryTime));
+    printf("  Exit Time    : %s", ctime(&exitTime));
+    printf("  Duration     : %d hr %d min\n", actualHours, actualMinutes);
+    printf("  Billed Hours : %d hour(s)\n", billedHours);
 
-    fee = duration * RATE_PER_HOUR;
+    fee = billedHours * RATE_PER_HOUR;
 
 
-    printReceipt(reg, slots[slotIndex].slotNumber, duration, fee);
+    printReceipt(reg, slots[slotIndex].slotNumber,
+                 actualHours, actualMinutes, billedHours, fee);
 
 
     if (transactionCount < MAX_TRANSACTIONS) {
         strcpy(history[transactionCount].regNumber, reg);
-        history[transactionCount].slotNumber = slots[slotIndex].slotNumber;
-        history[transactionCount].duration   = duration;
-        history[transactionCount].fee        = fee;
+        history[transactionCount].slotNumber    = slots[slotIndex].slotNumber;
+        history[transactionCount].billedHours    = billedHours;
+        history[transactionCount].actualHours    = actualHours;
+        history[transactionCount].actualMinutes  = actualMinutes;
+        history[transactionCount].fee            = fee;
         transactionCount++;
     } else {
         printf("  [!] Transaction history is full. "
@@ -372,7 +391,9 @@ void vehicleExit(void)
            slots[slotIndex].slotNumber);
 }
 
-void printReceipt(const char *reg, int slot, int duration, int fee)
+void printReceipt(const char *reg, int slot,
+                  int actualHrs, int actualMin,
+                  int billedHrs, int fee)
 {
     printf("\n");
     printLine('=', 50);
@@ -380,7 +401,8 @@ void printReceipt(const char *reg, int slot, int duration, int fee)
     printLine('=', 50);
     printf("  Vehicle      : %s\n",   reg);
     printf("  Slot         : %d\n",    slot);
-    printf("  Duration     : %d hour(s)\n", duration);
+    printf("  Duration     : %d hr %d min\n", actualHrs, actualMin);
+    printf("  Billed Hours : %d hour(s)\n", billedHrs);
     printf("  Rate         : Rs.%d/hour\n", RATE_PER_HOUR);
     printLine('-', 50);
     printf("  TOTAL FEE    : Rs.%d\n", fee);
@@ -486,20 +508,22 @@ void viewTransactionHistory(void)
     }
 
 
-    printf("  +-----+------------------+------+----------+----------+\n");
-    printf("  | No. | Registration     | Slot | Duration |   Fee    |\n");
-    printf("  +-----+------------------+------+----------+----------+\n");
+    printf("  +-----+------------------+------+-------------+--------+----------+\n");
+    printf("  | No. | Registration     | Slot | Duration    | Billed |   Fee    |\n");
+    printf("  +-----+------------------+------+-------------+--------+----------+\n");
 
 
     for (i = 0; i < transactionCount; i++) {
-        printf("  | %3d | %-16s | %4d | %5d hr | Rs.%5d |\n",
+        printf("  | %3d | %-16s | %4d | %3dhr %2dmin | %3d hr | Rs.%5d |\n",
                i + 1,
                history[i].regNumber,
                history[i].slotNumber,
-               history[i].duration,
+               history[i].actualHours,
+               history[i].actualMinutes,
+               history[i].billedHours,
                history[i].fee);
     }
 
-    printf("  +-----+------------------+------+----------+----------+\n");
+    printf("  +-----+------------------+------+-------------+--------+----------+\n");
     printf("\n  Total Revenue : Rs.%d\n", totalRevenue);
 }

@@ -38,11 +38,12 @@ flowchart TD
     H2 -->|Yes| H3{Vehicle Found?}
     H3 -->|No| H3E["Display: Vehicle Not Found"]
     H3E --> D
-    H3 -->|Yes| H4["Read Parking Duration"]
-    H4 --> H5{Duration >= 1?}
-    H5 -->|No| H5E["Display: Invalid Duration"]
-    H5E --> D
-    H5 -->|Yes| H6["Calculate Fee = Duration x Rs.20"]
+    H3 -->|Yes| H4["Record Exit Timestamp"]
+    H4 --> H5["Calculate Duration = Exit Time - Entry Time"]
+    H5 --> H5A{"Duration < 1 hour?"}
+    H5A -->|Yes| H5B["Set Duration = 1 hour (minimum)"]
+    H5A -->|No| H6["Calculate Fee = Duration x Rs.20"]
+    H5B --> H6
     H6 --> H7["Print Parking Receipt"]
     H7 --> H8["Record Transaction in History"]
     H8 --> H9["Add Fee to Total Revenue"]

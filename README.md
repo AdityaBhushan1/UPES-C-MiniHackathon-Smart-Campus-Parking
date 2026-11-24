@@ -42,8 +42,8 @@ Design and implement a command-line **Smart Campus Parking System** using C prog
 
 | # | Feature                | Description |
 |---|------------------------|-------------|
-| 1 | **Vehicle Entry**      | Accepts and validates a registration number, checks for duplicates, allocates the first available slot, and displays confirmation. |
-| 2 | **Vehicle Exit**       | Locates the vehicle, accepts parking duration, calculates the fee, prints a receipt, records the transaction, and releases the slot. |
+| 1 | **Vehicle Entry**      | Accepts and validates a registration number, checks for duplicates, allocates the first available slot, records entry timestamp, and displays confirmation. |
+| 2 | **Vehicle Exit**       | Locates the vehicle, automatically calculates parking duration from entry/exit timestamps, calculates the fee, prints a receipt, records the transaction, and releases the slot. |
 | 3 | **Parking Status**     | Displays all 10 slots in a formatted table with occupancy statistics (total, occupied, available, occupancy %). |
 | 4 | **Search Vehicle**     | Searches by registration number and reports the slot and parked status. |
 | 5 | **Parking Summary**    | Shows total revenue, vehicles currently parked, available spaces, completed transactions, and occupancy percentage. |
@@ -61,7 +61,7 @@ Design and implement a command-line **Smart Campus Parking System** using C prog
 | Total parking slots    | 10 (configurable via `MAX_SLOTS`)  |
 | Parking rate           | Rs.20/hour (`RATE_PER_HOUR`)       |
 | Minimum duration       | 1 hour (`MIN_DURATION`)            |
-| Duration input         | Whole hours only                   |
+| Duration calculation   | Automatic from entry/exit timestamps (rounded to whole hours, min 1 hr) |
 | Registration format    | Letters (A–Z), digits (0–9), hyphens (-) |
 | Max registration length| 20 characters (`MAX_REG_LEN`)      |
 | Max transaction records| 100 per session (`MAX_TRANSACTIONS`)|
@@ -75,7 +75,7 @@ All values are defined as `#define` macros at the top of `parking.c` and can be 
 
 | Concept                | Where Used |
 |------------------------|------------|
-| **Variables & Data Types** | `int`, `char`, `float` for slot data, fees, occupancy |
+| **Variables & Data Types** | `int`, `char`, `float`, `time_t`, `double` for slot data, fees, timestamps, occupancy |
 | **Operators**          | Arithmetic (`*`, `/`), relational (`==`, `!=`, `<`), logical (`!`, `&&`) |
 | **Conditional Statements** | `if-else` for validation, duplicate checks, full-lot detection |
 | **Loops**              | `for` loops for iterating over slots and transactions; `do-while` for menu |
@@ -106,8 +106,8 @@ All values are defined as `#define` macros at the top of `parking.c` and can be 
 | `findVehicle(reg)`       | Linear search through occupied slots; returns index or -1. |
 | `findAvailableSlot()`    | Returns the index of the first free slot, or -1 if full. |
 | `countOccupied()`        | Counts and returns the number of occupied slots. |
-| `vehicleEntry()`         | Full entry workflow: validate → duplicate check → allocate → confirm. |
-| `vehicleExit()`          | Full exit workflow: find → duration → fee → receipt → record → release. |
+| `vehicleEntry()`         | Full entry workflow: validate → duplicate check → allocate → record timestamp → confirm. |
+| `vehicleExit()`          | Full exit workflow: find → auto-calculate duration from timestamps → fee → receipt → record → release. |
 | `viewParkingStatus()`    | Displays the slot table and occupancy summary. |
 | `searchVehicle()`        | Searches for a vehicle and displays its location or a not-found message. |
 | `parkingSummary()`       | Displays revenue, occupancy, and transaction statistics. |
@@ -134,13 +134,15 @@ BEGIN
                 IF duplicate found → show error, return
                 IF no available slot → show "lot full", return
                 Allocate first available slot
-                Display confirmation with slot number
+                Record entry timestamp using time()
+                Display confirmation with slot number and entry time
 
             CASE 2 (Vehicle Exit):
                 Read registration number
                 IF not found → show error, return
-                Read parking duration (whole hours)
-                IF duration < 1 → show error, return
+                Record exit timestamp
+                Calculate duration = (exitTime - entryTime) in hours
+                IF duration < 1 → set duration = 1 (minimum billing)
                 Calculate fee = duration × Rs.20
                 Print parking receipt
                 Record transaction in history[]
@@ -219,6 +221,7 @@ parking.exe
   [OK] Vehicle parked successfully!
   Vehicle       : UK07AB1234
   Assigned Slot : 1
+  Entry Time    : Mon Nov 24 14:30:00 2026
 
   Occupied : 1 / 10  |  Available : 9
 ```
@@ -245,7 +248,9 @@ parking.exe
      VEHICLE EXIT
   ==================================================
   Enter registration number: UK07AB1234
-  Enter parking duration (whole hours, min 1): 3
+  Entry Time   : Mon Nov 24 14:30:00 2026
+  Exit Time    : Mon Nov 24 17:30:00 2026
+  Duration     : 3 hour(s)
 
   ==================================================
             PARKING RECEIPT
