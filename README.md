@@ -351,13 +351,11 @@ parking.exe
 ## Project Structure
 
 ```
-Nexus_Smart_Campus_Parking/
-├── parking.c              # Complete C source code
-├── README.md              # This documentation
-├── flowchart.mmd          # Mermaid flowchart of program logic
-├── presentation.pptx      # Academic presentation
-└── screenshots/
-    └── sample_output.png  # Sample terminal output screenshot
+UPES-C-MiniHackathon-Smart-Campus-Parking/
+├── parking.c                              # Complete C source code
+├── parking.exe                            # Compiled binary
+├── README.md                              # This documentation
+└── smart-campus-parking-master-v4.pptx    # Academic presentation
 ```
 
 ---
