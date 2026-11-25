@@ -13,15 +13,15 @@ typedef struct {
     int    slotNumber;
     char   regNumber[MAX_REG_LEN + 1];
     int    isOccupied;
-    time_t entryTime;   /* Timestamp recorded at vehicle entry */
+    time_t entryTime;
 } ParkingSlot;
 
 typedef struct {
     char regNumber[MAX_REG_LEN + 1];
     int  slotNumber;
-    int  billedHours;    /* Hours charged (rounded up)       */
-    int  actualHours;    /* Exact hours portion of duration   */
-    int  actualMinutes;  /* Exact minutes portion of duration */
+    int  billedHours;
+    int  actualHours;   
+    int  actualMinutes;  
     int  fee;
 } Transaction;
 
