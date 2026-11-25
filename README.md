@@ -44,11 +44,11 @@ Design and implement a command-line **Smart Campus Parking System** using C prog
 | # | Feature                | Description |
 |---|------------------------|-------------|
 | 1 | **Vehicle Entry**      | Accepts and validates a registration number, checks for duplicates, allocates the first available slot, records entry timestamp, and displays confirmation. |
-| 2 | **Vehicle Exit**       | Locates the vehicle, automatically calculates parking duration from entry/exit timestamps, calculates the fee, prints a receipt, records the transaction, and releases the slot. |
+| 2 | **Vehicle Exit**       | Locates the vehicle, automatically calculates parking duration from entry/exit timestamps (displayed in exact hours and minutes), bills by rounding up to the next full hour (minimum 1 hour), prints a receipt, records the transaction, and releases the slot. |
 | 3 | **Parking Status**     | Displays all 10 slots in a formatted table with occupancy statistics (total, occupied, available, occupancy %). |
 | 4 | **Search Vehicle**     | Searches by registration number and reports the slot and parked status. |
 | 5 | **Parking Summary**    | Shows total revenue, vehicles currently parked, available spaces, completed transactions, and occupancy percentage. |
-| 6 | **Transaction History**| Lists all completed exit transactions with registration, slot, duration, and fee in a formatted table. |
+| 6 | **Transaction History**| Lists all completed exit transactions with registration, slot, exact duration, billed hours, and fee in a formatted table. |
 | 7 | **Input Validation**   | Rejects empty input, special characters, overly long strings, non-integer menu selections, and invalid parking durations. |
 | 8 | **Duplicate Detection**| Prevents the same vehicle from being registered twice while it is still parked. |
 | 9 | **Full Lot Detection** | Displays a clear error when all parking slots are occupied. |
@@ -62,7 +62,7 @@ Design and implement a command-line **Smart Campus Parking System** using C prog
 | Total parking slots    | 10 (configurable via `MAX_SLOTS`)  |
 | Parking rate           | Rs.20/hour (`RATE_PER_HOUR`)       |
 | Minimum duration       | 1 hour (`MIN_DURATION`)            |
-| Duration calculation   | Automatic from entry/exit timestamps (rounded to whole hours, min 1 hr) |
+| Duration calculation   | Automatic from entry/exit timestamps; exact time shown in hours and minutes; billing rounds up to the next full hour (min 1 hr) |
 | Registration format    | Letters (A–Z), digits (0–9), hyphens (-) |
 | Max registration length| 20 characters (`MAX_REG_LEN`)      |
 | Max transaction records| 100 per session (`MAX_TRANSACTIONS`)|
@@ -83,7 +83,7 @@ All values are defined as `#define` macros at the top of `parking.c` and can be 
 | **Arrays**             | `slots[]` for parking slots, `history[]` for transactions |
 | **Strings**            | `strcmp`, `strcpy`, `strlen`, `strcspn`, `fgets` for registration handling |
 | **Structures**         | `ParkingSlot` and `Transaction` to group related data |
-| **User-defined Functions** | 17 functions, each handling a single responsibility |
+| **User-defined Functions** | 19 functions, each handling a single responsibility |
 | **Switch Statement**   | Menu dispatch in `main()` |
 | **Input Validation**   | `scanf` return check, `fgets` with length limits, character validation |
 | **Macros / Constants** | `#define` for all configurable parameters |
@@ -113,7 +113,7 @@ All values are defined as `#define` macros at the top of `parking.c` and can be 
 | `searchVehicle()`        | Searches for a vehicle and displays its location or a not-found message. |
 | `parkingSummary()`       | Displays revenue, occupancy, and transaction statistics. |
 | `viewTransactionHistory()` | Displays all completed transactions in a formatted table. |
-| `printReceipt(reg, slot, duration, fee)` | Formats and prints a parking receipt. |
+| `printReceipt(reg, slot, actualHrs, actualMin, billedHrs, fee)` | Formats and prints a parking receipt with exact duration and billed hours. |
 
 ---
 
@@ -141,11 +141,14 @@ BEGIN
             CASE 2 (Vehicle Exit):
                 Read registration number
                 IF not found → show error, return
-                Record exit timestamp
-                Calculate duration = (exitTime - entryTime) in hours
-                IF duration < 1 → set duration = 1 (minimum billing)
-                Calculate fee = duration × Rs.20
-                Print parking receipt
+                Record exit timestamp using time()
+                Calculate totalMinutes = (exitTime - entryTime) / 60
+                actualHours   = totalMinutes / 60
+                actualMinutes = totalMinutes % 60
+                billedHours   = actualHours (round up if minutes > 0)
+                IF billedHours < 1 → set billedHours = 1 (minimum billing)
+                Calculate fee = billedHours × Rs.20
+                Print parking receipt (showing exact duration + billed hours)
                 Record transaction in history[]
                 Add fee to total revenue
                 Release the slot
@@ -250,18 +253,20 @@ parking.exe
   ==================================================
   Enter registration number: UK07AB1234
   Entry Time   : Mon Nov 24 14:30:00 2026
-  Exit Time    : Mon Nov 24 17:30:00 2026
-  Duration     : 3 hour(s)
+  Exit Time    : Mon Nov 24 17:45:00 2026
+  Duration     : 3 hr 15 min
+  Billed Hours : 4 hour(s)
 
   ==================================================
             PARKING RECEIPT
   ==================================================
   Vehicle      : UK07AB1234
   Slot         : 1
-  Duration     : 3 hour(s)
+  Duration     : 3 hr 15 min
+  Billed Hours : 4 hour(s)
   Rate         : Rs.20/hour
   --------------------------------------------------
-  TOTAL FEE    : Rs.60
+  TOTAL FEE    : Rs.80
   ==================================================
   Thank you! Drive safely.
   ==================================================
@@ -292,15 +297,15 @@ parking.exe
 ### Transaction History
 
 ```
-  +-----+------------------+------+----------+----------+
-  | No. | Registration     | Slot | Duration |   Fee    |
-  +-----+------------------+------+----------+----------+
-  |   1 | UK07AB1234       |    1 |     3 hr | Rs.   60 |
-  |   2 | UK07CD5678       |    2 |     2 hr | Rs.   40 |
-  |   3 | HR26DK8899       |    1 |     1 hr | Rs.   20 |
-  +-----+------------------+------+----------+----------+
+  +-----+------------------+------+-------------+--------+----------+
+  | No. | Registration     | Slot | Duration    | Billed |   Fee    |
+  +-----+------------------+------+-------------+--------+----------+
+  |   1 | UK07AB1234       |    1 |   3hr 15min |   4 hr | Rs.   80 |
+  |   2 | UK07CD5678       |    2 |   2hr  0min |   2 hr | Rs.   40 |
+  |   3 | HR26DK8899       |    1 |   0hr 45min |   1 hr | Rs.   20 |
+  +-----+------------------+------+-------------+--------+----------+
 
-  Total Revenue : Rs.120
+  Total Revenue : Rs.140
 ```
 
 ---
@@ -311,15 +316,15 @@ parking.exe
 |---|---------------------------------------|------------------------|----------------------------------------------|--------|
 | 1 | Successful vehicle entry              | Reg: `UK07AB1234`      | Assigned to Slot 1, Available: 9             | ✅ Pass |
 | 2 | Duplicate vehicle registration        | Reg: `UK07AB1234` (again) | Error: "already parked"                   | ✅ Pass |
-| 3 | Successful vehicle exit               | Reg: `UK07AB1234`, 3 hrs | Receipt: Rs.60, Slot 1 released            | ✅ Pass |
+| 3 | Successful vehicle exit               | Reg: `UK07AB1234` (auto-timed) | Receipt with duration, billed hours, and fee; Slot 1 released | ✅ Pass |
 | 4 | Search for existing vehicle           | Reg: `UK07AB1234`      | Found at Slot 1, Currently Parked            | ✅ Pass |
 | 5 | Search for nonexistent vehicle        | Reg: `XX00ZZZZZZ`      | Error: "NOT currently parked"                | ✅ Pass |
 | 6 | Entry when lot is full                | Fill all 10 slots, try 11th | Error: "Parking lot is FULL"            | ✅ Pass |
 | 7 | Invalid registration (special chars)  | Reg: `!@#$%`           | Error: "Use only letters, digits, hyphens"   | ✅ Pass |
 | 8 | Invalid menu input (non-integer)      | Input: `abc`           | Error: "Invalid choice"                      | ✅ Pass |
 | 9 | Empty registration                    | Reg: *(empty)*         | Error: "cannot be empty"                     | ✅ Pass |
-| 10 | Correct fee calculation              | 3 hours × Rs.20        | Rs.60                                        | ✅ Pass |
-| 11 | Correct revenue after multiple exits | Rs.60 + Rs.40 + Rs.20  | Total: Rs.120                                | ✅ Pass |
+| 10 | Correct fee calculation              | Billed hours × Rs.20   | Partial hours rounded up, min 1 hr billed    | ✅ Pass |
+| 11 | Correct revenue after multiple exits | Sum of all exit fees    | Revenue accumulates correctly                | ✅ Pass |
 | 12 | Slot available after exit            | Exit from Slot 1       | Slot 1 shows "Available" in status table     | ✅ Pass |
 
 **All 12 test cases pass with zero compilation warnings.**
@@ -330,21 +335,19 @@ parking.exe
 
 1. **No data persistence** — All data is lost when the application exits. No file I/O is used.
 2. **Session-based history** — Transaction history is capped at 100 records per session.
-3. **Manual duration input** — Parking duration is entered manually; the system does not track real-time entry/exit timestamps.
-4. **Single parking lot** — The system manages only one lot; there is no multi-lot or multi-floor support.
-5. **No vehicle type support** — All vehicles are charged the same rate regardless of type (car, bike, etc.).
-6. **No user authentication** — There is no login or role-based access control.
+3. **Single parking lot** — The system manages only one lot; there is no multi-lot or multi-floor support.
+4. **No vehicle type support** — All vehicles are charged the same rate regardless of type (car, bike, etc.).
+5. **No user authentication** — There is no login or role-based access control.
 
 ## Future Improvements
 
 1. **File I/O** — Save and load parking data to/from files for persistence across sessions.
-2. **Timestamp tracking** — Use `time.h` to record actual entry/exit times and auto-calculate duration.
-3. **Vehicle categories** — Support different rates for cars, bikes, and commercial vehicles.
-4. **Dynamic capacity** — Allow configuring the number of slots at runtime.
-5. **Search enhancements** — Search by partial registration or by slot number.
-6. **Sorting and filtering** — Sort transaction history by date, fee, or duration.
-7. **Admin features** — Password-protected settings and revenue reports.
-8. **Multi-lot support** — Manage multiple parking areas from a single application.
+2. **Vehicle categories** — Support different rates for cars, bikes, and commercial vehicles.
+3. **Dynamic capacity** — Allow configuring the number of slots at runtime.
+4. **Search enhancements** — Search by partial registration or by slot number.
+5. **Sorting and filtering** — Sort transaction history by date, fee, or duration.
+6. **Admin features** — Password-protected settings and revenue reports.
+7. **Multi-lot support** — Manage multiple parking areas from a single application.
 
 ---
 
